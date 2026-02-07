@@ -1,2 +1,18 @@
 @import "tailwindcss";
 @import "@repo/design-system/styles/globals.css";
+
+:root {
+  --font-geist-sans: var(--font-inter);
+  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  --radius: 0.75rem;
+}
+
+@layer base {
+  html,
+  body {
+    min-height: 100%;
+    background: var(--background);
+    color: var(--foreground);
+  }
+}
