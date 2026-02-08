@@ -1,4 +1,4 @@
-import { streamText } from "ai";
+import { streamText, type LanguageModelV1 } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 const SYSTEM_PROMPT = `You are a pitch-deck assistant.
@@ -11,9 +11,11 @@ Always return valid JSON and nothing else.`;
 
 export async function POST(request: Request) {
   const { messages } = await request.json();
+  // Bridge ai@3 core typings with @ai-sdk/openai@1 provider typings in this repo.
+  const model = openai("gpt-4o") as unknown as LanguageModelV1;
 
   const result = await streamText({
-    model: openai("gpt-4o"),
+    model,
     system: SYSTEM_PROMPT,
     messages,
     temperature: 0.4,
