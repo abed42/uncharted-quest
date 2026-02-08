@@ -11,7 +11,9 @@ export type DeckRecord = {
   slug: string;
   title: string;
   prompt: string;
+  isPublic: boolean;
   content?: DeckContent;
+  chatHistory?: DeckChatMessage[];
   createdAt: string;
   updatedAt: string;
 };
@@ -32,6 +34,12 @@ export type DeckContent = {
   slides: DeckContentSlide[];
 };
 
+export type DeckChatMessage = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+};
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -43,6 +51,9 @@ function toStored(record: DeckRecord): StoredDeckRecord {
     slug: record.slug,
     title: record.title,
     prompt: record.prompt,
+    isPublic: record.isPublic,
+    content: record.content,
+    chatHistory: record.chatHistory,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -55,7 +66,19 @@ function encode(record: StoredDeckRecord): string {
 function decode(value: string): StoredDeckRecord | null {
   if (!value.startsWith(RECORD_PREFIX)) return null;
   try {
-    return JSON.parse(value.slice(RECORD_PREFIX.length)) as StoredDeckRecord;
+    const parsed = JSON.parse(value.slice(RECORD_PREFIX.length)) as Partial<StoredDeckRecord>;
+    return {
+      ownerId: parsed.ownerId ?? "",
+      username: parsed.username ?? "",
+      slug: parsed.slug ?? "",
+      title: parsed.title ?? "Untitled",
+      prompt: parsed.prompt ?? "",
+      isPublic: parsed.isPublic ?? false,
+      content: parsed.content,
+      chatHistory: parsed.chatHistory,
+      createdAt: parsed.createdAt ?? nowIso(),
+      updatedAt: parsed.updatedAt ?? nowIso(),
+    };
   } catch {
     return null;
   }
@@ -135,6 +158,7 @@ export async function createDeck(input: {
     slug,
     title: "Untitled",
     prompt: input.prompt,
+    isPublic: false,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -158,6 +182,19 @@ export async function getDeckByPath(input: {
       (deck) => deck.username === input.username && deck.slug === input.slug
     ) ?? null
   );
+}
+
+export async function getDeckByIdForOwner(input: {
+  id: number;
+  ownerId: string;
+}): Promise<DeckRecord | null> {
+  const row = await database.page.findUnique({ where: { id: input.id } });
+  if (!row) return null;
+
+  const parsed = decode(row.name);
+  if (!parsed || parsed.ownerId !== input.ownerId) return null;
+
+  return { id: row.id, ...parsed };
 }
 
 export async function renameDeck(input: {
@@ -206,6 +243,60 @@ export async function saveDeckContent(input: {
   const next: StoredDeckRecord = {
     ...parsed,
     content: input.content,
+    updatedAt: nowIso(),
+  };
+
+  const updated = await database.page.update({
+    where: { id: input.id },
+    data: {
+      name: encode(next),
+    },
+  });
+
+  return { id: updated.id, ...next };
+}
+
+export async function saveDeckChatHistory(input: {
+  id: number;
+  ownerId: string;
+  chatHistory: DeckChatMessage[];
+}): Promise<DeckRecord | null> {
+  const row = await database.page.findUnique({ where: { id: input.id } });
+  if (!row) return null;
+
+  const parsed = decode(row.name);
+  if (!parsed || parsed.ownerId !== input.ownerId) return null;
+
+  const next: StoredDeckRecord = {
+    ...parsed,
+    chatHistory: input.chatHistory,
+    updatedAt: nowIso(),
+  };
+
+  const updated = await database.page.update({
+    where: { id: input.id },
+    data: {
+      name: encode(next),
+    },
+  });
+
+  return { id: updated.id, ...next };
+}
+
+export async function setDeckVisibility(input: {
+  id: number;
+  ownerId: string;
+  isPublic: boolean;
+}): Promise<DeckRecord | null> {
+  const row = await database.page.findUnique({ where: { id: input.id } });
+  if (!row) return null;
+
+  const parsed = decode(row.name);
+  if (!parsed || parsed.ownerId !== input.ownerId) return null;
+
+  const next: StoredDeckRecord = {
+    ...parsed,
+    isPublic: input.isPublic,
     updatedAt: nowIso(),
   };
 

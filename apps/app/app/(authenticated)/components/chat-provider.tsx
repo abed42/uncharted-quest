@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   createContext,
   useEffect,
   useContext,
@@ -46,7 +47,20 @@ type ChatState = {
   taskStatus: string | null;
   setDeck: (deck: Deck | null) => void;
   activeDeckId: number | null;
-  setActiveDeckId: (deckId: number | null) => void;
+  activateDeck: (params: {
+    deckId: number;
+    chatHistory?: Array<{
+      id: string;
+      role: "user" | "assistant" | "system";
+      content: string;
+    }>;
+    persistedDeck?: {
+      title: string;
+      subtitle?: string;
+      slides: ParsedSlide[];
+    };
+  }) => void;
+  deactivateDeck: () => void;
 };
 
 const ChatContext = createContext<ChatState | null>(null);
@@ -182,12 +196,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [taskStatus, setTaskStatus] = useState<string | null>(null);
   const [activeDeckId, setActiveDeckId] = useState<number | null>(null);
   const activeDeckIdRef = useRef<number | null>(null);
+  const chatSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const eventsRef = useRef<EventSource | null>(null);
   const isSavingDeckRef = useRef(false);
 
   useEffect(() => {
     activeDeckIdRef.current = activeDeckId;
   }, [activeDeckId]);
+
+  const clearChatSaveTimer = () => {
+    if (!chatSaveTimerRef.current) return;
+    clearTimeout(chatSaveTimerRef.current);
+    chatSaveTimerRef.current = null;
+  };
 
   const stopTaskStream = () => {
     eventsRef.current?.close();
@@ -235,11 +256,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     return () => {
       stopTaskStream();
+      clearChatSaveTimer();
     };
   }, []);
 
   const chat = useChat({
     api: "/api/chat",
+    body: {
+      deckId: activeDeckId,
+    },
     streamProtocol: "text",
     initialMessages: [initialMessage],
     onResponse: (response) => {
@@ -305,6 +330,51 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const activateDeck = useCallback(
+    ({
+      deckId,
+      chatHistory,
+      persistedDeck,
+    }: {
+      deckId: number;
+      chatHistory?: Array<{
+        id: string;
+        role: "user" | "assistant" | "system";
+        content: string;
+      }>;
+      persistedDeck?: {
+        title: string;
+        subtitle?: string;
+        slides: ParsedSlide[];
+      };
+    }) => {
+      setActiveDeckId(deckId);
+      if (persistedDeck) {
+        setDeck(normalizeDeck(persistedDeck));
+        setDeckStatus("ready");
+        setLastDeckError(null);
+      } else {
+        setDeck(null);
+        setDeckStatus("idle");
+      }
+
+      if (chatHistory?.length) {
+        chat.setMessages(chatHistory as unknown as Message[]);
+      } else {
+        chat.setMessages([initialMessage]);
+      }
+    },
+    [chat.setMessages]
+  );
+
+  const deactivateDeck = useCallback(() => {
+    setActiveDeckId(null);
+    setDeck(null);
+    setDeckStatus("idle");
+    setLastDeckError(null);
+    chat.setMessages([initialMessage]);
+  }, [chat.setMessages]);
+
   const value = useMemo<ChatState>(
     () => ({
       messages: chat.messages,
@@ -319,7 +389,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       taskStatus,
       setDeck,
       activeDeckId,
-      setActiveDeckId,
+      activateDeck,
+      deactivateDeck,
     }),
     [
       chat.messages,
@@ -333,8 +404,45 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       lastDeckError,
       taskStatus,
       activeDeckId,
+      activateDeck,
+      deactivateDeck,
     ]
   );
+
+  useEffect(() => {
+    if (!activeDeckId || chat.isLoading) return;
+
+    clearChatSaveTimer();
+    chatSaveTimerRef.current = setTimeout(() => {
+      const normalizedMessages = chat.messages
+        .filter(
+          (message): message is Message & { content: string } =>
+            (message.role === "user" ||
+              message.role === "assistant" ||
+              message.role === "system") &&
+            typeof message.content === "string"
+        )
+        .map((message) => ({
+          id: message.id,
+          role: message.role,
+          content: message.content,
+        }));
+
+      void fetch(`/api/decks/${activeDeckId}/chat`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: normalizedMessages,
+        }),
+      });
+    }, 600);
+
+    return () => {
+      clearChatSaveTimer();
+    };
+  }, [activeDeckId, chat.isLoading, chat.messages]);
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }

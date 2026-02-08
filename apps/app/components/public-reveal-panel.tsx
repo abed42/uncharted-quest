@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@repo/design-system/lib/utils";
-import { useChatState } from "../../components/chat-provider";
 
 type Slide = {
   title: string;
@@ -11,8 +10,8 @@ type Slide = {
   children?: Slide[];
 };
 
-type ArtifactPanelProps = {
-  demoSlides: Slide[];
+type PublicRevealPanelProps = {
+  slides: Slide[];
   className?: string;
 };
 
@@ -80,38 +79,20 @@ function buildRevealSrcDoc(slides: Slide[]) {
 </html>`;
 }
 
-export function ArtifactPanel({ demoSlides, className }: ArtifactPanelProps) {
+export function PublicRevealPanel({ slides, className }: PublicRevealPanelProps) {
   const [mounted, setMounted] = useState(false);
-  const { deck } = useChatState();
-  const slides = deck?.slides ?? demoSlides;
   const srcDoc = buildRevealSrcDoc(slides);
-  const [iframeElement, setIframeElement] = useState<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  useEffect(() => {
-    const onPresent = () => {
-      if (!iframeElement) return;
-      if (document.fullscreenElement) return;
-      void iframeElement.requestFullscreen?.();
-    };
-
-    window.addEventListener("deck:present", onPresent as EventListener);
-    return () => {
-      window.removeEventListener("deck:present", onPresent as EventListener);
-    };
-  }, [iframeElement]);
 
   return (
     <div className={cn("flex h-full flex-col rounded-xl border bg-card", className)}>
       <div className="flex-1 p-4">
         {mounted ? (
           <iframe
-            ref={setIframeElement}
-            title="Reveal.js baseline deck"
-            key={deck?.id ?? "demo-deck"}
+            title="Public Reveal.js deck"
             srcDoc={srcDoc}
             className="h-full w-full rounded-md border-0"
           />

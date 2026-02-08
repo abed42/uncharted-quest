@@ -1,7 +1,9 @@
 import { streamObject, type LanguageModelV1 } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
+import { auth } from "@repo/auth/server";
 import { createTask, updateTask } from "@/lib/chat-task-runtime";
+import { getDeckByIdForOwner } from "@/lib/decks-store";
 
 const SYSTEM_PROMPT = `You are a pitch-deck assistant.
 If you need more info, respond with JSON:
@@ -13,6 +15,9 @@ If the user's topic is clear but title preference is unclear, choose a strong sp
 If the topic itself is unclear or mixed, ask one direct clarifying question that includes title direction.
 Use "children" to create vertical (downward) slides that expand on a topic.
 Use "children" only when a slide has a clear drill-down.
+Prefer "children" when a parent slide introduces a section that naturally breaks into 2-3 focused sub-slides (for example: problem details, product deep dive, go-to-market steps, financial assumptions, risks).
+If a slide would otherwise have too many bullets (more than 4) or mixed subtopics, convert those details into vertical children instead.
+Do not create children for title, closing, or simple single-point slides.
 Do not create children for every slide.
 Use at most 2 parent slides with children, and usually 2-3 children each.
 If output may be long, prefer a smaller but valid deck over invalid JSON.
@@ -55,8 +60,36 @@ function buildContextMessages(input: unknown): any[] {
   return input.slice(-MAX_CONTEXT_MESSAGES);
 }
 
+function buildDeckContextSystemPrompt(deck: Awaited<ReturnType<typeof getDeckByIdForOwner>>) {
+  if (!deck) return "";
+
+  const contextPayload = {
+    title: deck.title,
+    prompt: deck.prompt,
+    content: deck.content ?? null,
+  };
+
+  return `\nYou are editing an existing deck/project. Keep continuity with this deck unless the user explicitly asks to pivot to a different product/topic.
+Existing deck context (source of truth):
+${JSON.stringify(contextPayload)}
+Rules for edits:
+- Treat user requests as modifications to this existing deck.
+- Keep the core product/topic consistent with the existing deck.
+- Do not replace the deck with a new unrelated concept unless user clearly asks for a pivot/rewrite.
+- If user request could mean either "small edit" or "full pivot", ask a single clarifying question.`;
+}
+
 export async function POST(request: Request) {
-  const { messages } = await request.json();
+  const body = (await request.json()) as { messages?: unknown; deckId?: unknown };
+  const messages = body.messages;
+  const rawDeckId = body.deckId;
+  const maybeDeckId = Number.isFinite(Number(rawDeckId)) ? Number(rawDeckId) : null;
+  const { userId } = await auth();
+  const existingDeck =
+    userId && maybeDeckId
+      ? await getDeckByIdForOwner({ id: maybeDeckId, ownerId: userId })
+      : null;
+  const systemPrompt = `${SYSTEM_PROMPT}${buildDeckContextSystemPrompt(existingDeck)}`;
   // Bridge ai@3 core typings with @ai-sdk/openai@1 provider typings in this repo.
   const model = openai("gpt-4o") as unknown as LanguageModelV1;
   const contextMessages = buildContextMessages(messages);
@@ -77,7 +110,7 @@ export async function POST(request: Request) {
   try {
     const result = await streamObject({
       model,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: contextMessages as any,
       schema: responseSchema,
       mode: "json",
