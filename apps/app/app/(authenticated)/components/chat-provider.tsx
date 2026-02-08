@@ -24,6 +24,8 @@ export type Deck = {
   id: string;
   title: string;
   subtitle?: string;
+  backgroundImage?: string;
+  fontFamily?: string;
   slides: DeckSlide[];
 };
 
@@ -57,6 +59,8 @@ type ChatState = {
     persistedDeck?: {
       title: string;
       subtitle?: string;
+      backgroundImage?: string;
+      fontFamily?: string;
       slides: ParsedSlide[];
     };
   }) => void;
@@ -84,6 +88,8 @@ type ParsedPayload = {
   deck?: {
     title: string;
     subtitle?: string;
+    backgroundImage?: string;
+    fontFamily?: string;
     slides?: ParsedSlide[];
   };
 };
@@ -179,6 +185,8 @@ function normalizeDeck(payload: NonNullable<ParsedPayload["deck"]>): Deck {
     id: crypto.randomUUID(),
     title: payload.title,
     subtitle: payload.subtitle,
+    backgroundImage: payload.backgroundImage,
+    fontFamily: payload.fontFamily,
     slides: (payload.slides ?? []).map(normalizeSlide),
   };
 }
@@ -311,6 +319,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
               message: parsed.message,
               title: parsed.deck.title,
               subtitle: parsed.deck.subtitle,
+              backgroundImage: parsed.deck.backgroundImage,
+              fontFamily: parsed.deck.fontFamily,
               slides: parsed.deck.slides ?? [],
             }),
           }).finally(() => {
@@ -345,6 +355,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       persistedDeck?: {
         title: string;
         subtitle?: string;
+        backgroundImage?: string;
+        fontFamily?: string;
         slides: ParsedSlide[];
       };
     }) => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { UserButton } from "@repo/auth/client";
 import { ArrowUpRightIcon, PlusIcon } from "lucide-react";
 import { Poppins } from "next/font/google";
 import Link from "next/link";
@@ -83,17 +84,27 @@ export function DecksHome({ username, decks }: DecksHomeProps) {
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
-          backgroundImage: "url('/BG-desktop.png')",
+          backgroundImage: "url('/backgrounds/BG-desktop.png')",
           backgroundSize: "cover",
           backgroundPosition: "center top",
           backgroundRepeat: "no-repeat",
         }}
       />
 
-      <div
-        className={`${poppins.className} relative z-20 px-2 pt-4 text-xl font-bold tracking-tight text-white sm:px-4`}
-      >
-        uncharted.quest
+      <div className="relative z-20 flex items-center justify-between px-2 pt-4 sm:px-4">
+        <div className={`${poppins.className} text-xl font-bold tracking-tight text-white`}>
+          uncharted.quest
+        </div>
+        <UserButton
+          appearance={{
+            elements: {
+              rootBox: "flex overflow-hidden",
+              userButtonBox: "flex-row-reverse",
+              userButtonOuterIdentifier: "truncate pl-0",
+            },
+          }}
+          showName
+        />
       </div>
 
       <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col gap-6">

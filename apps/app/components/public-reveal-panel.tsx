@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@repo/design-system/lib/utils";
-import { getDeckStyleFallback } from "@/lib/deck-style-options";
+import {
+  getDeckBackgroundPublicPath,
+  getDeckStyleFallback,
+} from "@/lib/deck-style-options";
 
 type Slide = {
   title: string;
@@ -37,22 +40,31 @@ function renderSlideContent(slide: Slide) {
   return `${title}${content}${bullets}`;
 }
 
-function renderSlide(slide: Slide) {
-  if (!slide.children?.length) {
-    return `<section>${renderSlideContent(slide)}</section>`;
+function renderSectionAttributes(backgroundImageUrl?: string) {
+  if (!backgroundImageUrl) {
+    return `data-background-color="#050505"`;
   }
 
-  return `<section><section>${renderSlideContent(slide)}</section>${slide.children
-    .map((child) => `<section>${renderSlideContent(child)}</section>`)
+  return `data-background-color="#050505" data-background-image="${backgroundImageUrl}" data-background-size="cover" data-background-position="center"`;
+}
+
+function renderSlide(slide: Slide, backgroundImageUrl?: string) {
+  const sectionAttributes = renderSectionAttributes(backgroundImageUrl);
+  if (!slide.children?.length) {
+    return `<section ${sectionAttributes}>${renderSlideContent(slide)}</section>`;
+  }
+
+  return `<section ${sectionAttributes}><section ${sectionAttributes}>${renderSlideContent(slide)}</section>${slide.children
+    .map((child) => `<section ${sectionAttributes}>${renderSlideContent(child)}</section>`)
     .join("")}</section>`;
 }
 
 function buildRevealSrcDoc(
   slides: Slide[],
-  backgroundImageUrl: string,
+  backgroundImageUrl: string | null,
   fontFamily: string
 ) {
-  const slidesMarkup = slides.map(renderSlide).join("");
+  const slidesMarkup = slides.map((slide) => renderSlide(slide, backgroundImageUrl ?? undefined)).join("");
 
   return `<!doctype html>
 <html lang="en">
@@ -68,10 +80,6 @@ function buildRevealSrcDoc(
         margin: 0;
         height: 100%;
         background-color: #050505;
-        background-image: url('${backgroundImageUrl}');
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
         color: #f3f3f3;
         font-family: '${fontFamily}', serif;
       }
@@ -85,10 +93,6 @@ function buildRevealSrcDoc(
 
       .reveal .backgrounds {
         background-color: #050505;
-        background-image: url('${backgroundImageUrl}');
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
       }
 
       .reveal .slides {
@@ -158,15 +162,12 @@ export function PublicRevealPanel({
 }: PublicRevealPanelProps) {
   const [mounted, setMounted] = useState(false);
   const fallbackStyle = getDeckStyleFallback();
-  const backgroundFile = backgroundImage ?? fallbackStyle.backgroundImage;
-  const normalizedBackgroundPath = backgroundFile.startsWith("/")
-    ? backgroundFile
-    : `/${backgroundFile}`;
-  const encodedBackgroundPath = encodeURI(normalizedBackgroundPath);
-  const backgroundImageUrl =
-    typeof window === "undefined"
+  const encodedBackgroundPath = getDeckBackgroundPublicPath(backgroundImage ?? null);
+  const backgroundImageUrl = encodedBackgroundPath
+    ? typeof window === "undefined"
       ? encodedBackgroundPath
-      : new URL(encodedBackgroundPath, window.location.origin).toString();
+      : new URL(encodedBackgroundPath, window.location.origin).toString()
+    : null;
   const resolvedFontFamily = fontFamily ?? fallbackStyle.fontFamily;
   const srcDoc = buildRevealSrcDoc(slides, backgroundImageUrl, resolvedFontFamily);
 
@@ -181,7 +182,7 @@ export function PublicRevealPanel({
           <iframe
             title="Public Reveal.js deck"
             srcDoc={srcDoc}
-            key={`${encodedBackgroundPath}:${resolvedFontFamily}:${slides.length}`}
+            key={`${encodedBackgroundPath ?? "none"}:${resolvedFontFamily}:${slides.length}`}
             className="h-full w-full rounded-md border-0"
           />
         ) : (

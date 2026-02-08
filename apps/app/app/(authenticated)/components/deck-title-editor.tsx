@@ -40,6 +40,8 @@ type DeckTitleEditorProps = {
   initialDeckContent?: {
     title: string;
     subtitle?: string;
+    backgroundImage?: string;
+    fontFamily?: string;
     slides: InitialSlide[];
   };
 };

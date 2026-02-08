@@ -3,16 +3,30 @@ import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { auth } from "@repo/auth/server";
 import { createTask, updateTask } from "@/lib/chat-task-runtime";
+import {
+  DECK_BACKGROUND_OPTIONS,
+  DECK_FONT_OPTIONS,
+  getBackgroundOptionsPromptList,
+  getFontOptionsPromptList,
+} from "@/lib/deck-style-options";
 import { getDeckByIdForOwner } from "@/lib/decks-store";
 
 const SYSTEM_PROMPT = `You are a pitch-deck assistant.
 If you need more info, respond with JSON:
 {"type":"question","message":"<single direct question>"}
 When you are ready to generate a deck, respond with JSON:
-{"type":"deck","message":"<short summary>","deck":{"title":"<deck title>","subtitle":"<optional>","slides":[{"title":"...","content":"...","bullets":["..."],"children":[{"title":"...","content":"...","bullets":["..."]}]}]}}
+{"type":"deck","message":"<short summary>","deck":{"title":"<deck title>","subtitle":"<optional>","backgroundImage":"<optional background filename>","fontFamily":"<optional font family>","slides":[{"title":"...","content":"...","bullets":["..."],"children":[{"title":"...","content":"...","bullets":["..."]}]}]}}
 The deck title must match the actual pitch topic in the slides.
 If the user's topic is clear but title preference is unclear, choose a strong specific title.
 If the topic itself is unclear or mixed, ask one direct clarifying question that includes title direction.
+For style:
+- Choose backgroundImage only from this list:
+${getBackgroundOptionsPromptList()}
+- Choose fontFamily only from this list:
+${getFontOptionsPromptList()}
+- Always choose both backgroundImage and fontFamily when returning type="deck".
+- If the user asks for no background or a blank deck, choose a background that is effectively dark/minimal from the allowed list.
+- If editing an existing deck and user did not ask to restyle, preserve existing backgroundImage/fontFamily.
 Use "children" to create vertical (downward) slides that expand on a topic.
 Use "children" only when a slide has a clear drill-down.
 Prefer "children" when a parent slide introduces a section that naturally breaks into 2-3 focused sub-slides (for example: problem details, product deep dive, go-to-market steps, financial assumptions, risks).
@@ -50,6 +64,8 @@ const responseSchema = z.object({
     .object({
       title: z.string().min(1),
       subtitle: z.string().optional(),
+      backgroundImage: z.enum(DECK_BACKGROUND_OPTIONS),
+      fontFamily: z.enum(DECK_FONT_OPTIONS),
       slides: z.array(slideSchema).default([]),
     })
     .optional(),
@@ -66,6 +82,8 @@ function buildDeckContextSystemPrompt(deck: Awaited<ReturnType<typeof getDeckByI
   const contextPayload = {
     title: deck.title,
     prompt: deck.prompt,
+    backgroundImage: deck.backgroundImage ?? null,
+    fontFamily: deck.fontFamily ?? null,
     content: deck.content ?? null,
   };
 
