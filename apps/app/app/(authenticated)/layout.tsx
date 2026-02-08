@@ -2,8 +2,9 @@ import { auth, currentUser } from "@repo/auth/server";
 import { SidebarProvider } from "@repo/design-system/components/ui/sidebar";
 import { showBetaFeature } from "@repo/feature-flags";
 import { secure } from "@repo/security";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { env } from "@/env";
+import { ChatProvider } from "./components/chat-provider";
 import { NotificationsProvider } from "./components/notifications-provider";
 import { GlobalSidebar } from "./components/sidebar";
 
@@ -26,16 +27,18 @@ const AppLayout = async ({ children }: AppLayoutProperties) => {
 
   return (
     <NotificationsProvider userId={user.id}>
-      <SidebarProvider>
-        <GlobalSidebar>
-          {betaFeature && (
-            <div className="m-4 rounded-full bg-blue-500 p-1.5 text-center text-sm text-white">
-              Beta feature now available
-            </div>
-          )}
-          {children}
-        </GlobalSidebar>
-      </SidebarProvider>
+      <ChatProvider>
+        <SidebarProvider style={{ "--sidebar-width": "27rem" } as CSSProperties}>
+          <GlobalSidebar>
+            {betaFeature && (
+              <div className="m-4 rounded-full bg-blue-500 p-1.5 text-center text-sm text-white">
+                Beta feature now available
+              </div>
+            )}
+            {children}
+          </GlobalSidebar>
+        </SidebarProvider>
+      </ChatProvider>
     </NotificationsProvider>
   );
 };

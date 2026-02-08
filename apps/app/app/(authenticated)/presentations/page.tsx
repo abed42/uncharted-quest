@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Header } from "../components/header";
-import { RevealViewer } from "./components/reveal-viewer";
+import { PresentationsHeader } from "./components/presentations-header";
+import { ArtifactPanel } from "./components/artifact-panel";
 
 export const metadata: Metadata = {
   title: "Presentations",
@@ -19,6 +19,16 @@ const demoSlides = [
       "Describe your presentation",
       "Get a beautiful slide deck",
     ],
+    children: [
+      {
+        title: "Step 1 — Intent",
+        content: "Define the audience, goal, and the key message.",
+      },
+      {
+        title: "Step 2 — Structure",
+        content: "We generate a narrative flow with vertical drill-downs.",
+      },
+    ],
   },
   {
     title: "Design Templates",
@@ -33,9 +43,9 @@ const demoSlides = [
 export default function PresentationsPage() {
   return (
     <>
-      <Header page="Presentations" pages={["Home"]} />
+      <PresentationsHeader />
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <RevealViewer slides={demoSlides} />
+        <ArtifactPanel demoSlides={demoSlides} className="min-h-[640px]" />
       </div>
     </>
   );
