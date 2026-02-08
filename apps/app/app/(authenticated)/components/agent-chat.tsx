@@ -21,6 +21,17 @@ const loadingWords = [
   "putting things together",
 ];
 
+function looksLikeStructuredPayload(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  const startsLikeJson = trimmed.startsWith("{") || trimmed.startsWith("```");
+  if (!startsLikeJson) return false;
+  return (
+    trimmed.includes('"type"') &&
+    (trimmed.includes('"deck"') || trimmed.includes('"question"'))
+  );
+}
+
 function AnimatedDeckStatus() {
   const [wordIndex, setWordIndex] = useState(0);
   const word = useMemo(() => loadingWords[wordIndex] ?? loadingWords[0], [wordIndex]);
@@ -125,19 +136,29 @@ export function AgentChat({ className }: AgentChatProps) {
         <div className="flex min-h-full flex-col pb-4">
           <div className="flex-1" />
           <div className="space-y-3">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  "rounded-lg px-3 py-2 text-sm",
-                  message.role === "assistant"
-                    ? "bg-muted text-foreground"
-                    : "bg-primary text-primary-foreground"
-                )}
-              >
-                {getDisplayText(message.content)}
-              </div>
-            ))}
+            {messages.map((message) => {
+              const displayText = getDisplayText(message.content);
+              const shouldHideRawPayload =
+                message.role === "assistant" &&
+                displayText === message.content &&
+                looksLikeStructuredPayload(message.content);
+
+              if (shouldHideRawPayload) return null;
+
+              return (
+                <div
+                  key={message.id}
+                  className={cn(
+                    "rounded-lg px-3 py-2 text-sm",
+                    message.role === "assistant"
+                      ? "bg-muted text-foreground"
+                      : "bg-primary text-primary-foreground"
+                  )}
+                >
+                  {displayText}
+                </div>
+              );
+            })}
             {deck && deckStatus === "ready" ? (
               <div className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground">
                 Deck ready: {deck.title}

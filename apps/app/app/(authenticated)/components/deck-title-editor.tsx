@@ -18,6 +18,7 @@ import {
 } from "@repo/design-system/components/ui/popover";
 import { CheckIcon, CopyIcon, GlobeIcon, SquarePen } from "lucide-react";
 import { useChatState } from "./chat-provider";
+import { DeckStyleDialog } from "./deck-style-dialog";
 
 type InitialSlide = {
   title: string;
@@ -266,6 +267,7 @@ export function DeckTitleEditor({
           {/* <Button onClick={onExport} size="sm" type="button" variant="outline">
             Export
           </Button> */}
+          <DeckStyleDialog deckId={deckId} />
           <Button onClick={openPresentMode} size="sm" type="button" variant="outline">
             Present
           </Button>
