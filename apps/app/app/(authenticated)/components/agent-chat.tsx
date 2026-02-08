@@ -20,6 +20,9 @@ export function AgentChat({ className }: AgentChatProps) {
     handleSubmit,
     isLoading,
     deck,
+    deckStatus,
+    lastDeckError,
+    taskStatus,
   } = useChatState();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -28,6 +31,16 @@ export function AgentChat({ className }: AgentChatProps) {
   }, [messages.length, isLoading]);
 
   const canSend = input.trim().length > 0 && !isLoading;
+  const statusMessage =
+    taskStatus
+      ? taskStatus
+      : isLoading || deckStatus === "loading"
+        ? "Generating deck..."
+      : deckStatus === "question"
+        ? "Need one more detail before building the deck."
+        : deckStatus === "parse_failed"
+          ? lastDeckError ?? "Could not parse deck output. Try a shorter prompt."
+          : null;
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
@@ -55,6 +68,11 @@ export function AgentChat({ className }: AgentChatProps) {
             {deck ? (
               <div className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground">
                 Deck ready: {deck.title}
+              </div>
+            ) : null}
+            {statusMessage ? (
+              <div className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground">
+                {statusMessage}
               </div>
             ) : null}
             <div ref={messagesEndRef} />

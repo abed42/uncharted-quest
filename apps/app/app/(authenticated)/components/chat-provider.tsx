@@ -2,8 +2,10 @@
 
 import {
   createContext,
+  useEffect,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -24,6 +26,13 @@ export type Deck = {
   slides: DeckSlide[];
 };
 
+export type DeckStatus =
+  | "idle"
+  | "loading"
+  | "ready"
+  | "question"
+  | "parse_failed";
+
 type ChatState = {
   messages: Message[];
   input: string;
@@ -32,6 +41,9 @@ type ChatState = {
   handleSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   stop: () => void;
   deck: Deck | null;
+  deckStatus: DeckStatus;
+  lastDeckError: string | null;
+  taskStatus: string | null;
   setDeck: (deck: Deck | null) => void;
 };
 
@@ -51,6 +63,7 @@ type ParsedSlide = {
 };
 
 type ParsedPayload = {
+  type?: "question" | "deck";
   message?: string;
   deck?: {
     title: string;
@@ -59,9 +72,9 @@ type ParsedPayload = {
   };
 };
 
-function parsePayload(text: string): ParsedPayload | null {
+function tryParsePayload(raw: string): ParsedPayload | null {
   try {
-    const parsed = JSON.parse(text) as ParsedPayload;
+    const parsed = JSON.parse(raw) as ParsedPayload;
     if (parsed && typeof parsed === "object") {
       return parsed;
     }
@@ -69,6 +82,70 @@ function parsePayload(text: string): ParsedPayload | null {
     return null;
   }
   return null;
+}
+
+function stripCodeFences(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("```")) return trimmed;
+  return trimmed.replace(/^```[a-zA-Z]*\n?/, "").replace(/\n?```$/, "").trim();
+}
+
+function extractFirstJsonObject(text: string): string | null {
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === "{") {
+      if (depth === 0) start = index;
+      depth += 1;
+      continue;
+    }
+
+    if (char === "}") {
+      if (depth === 0) continue;
+      depth -= 1;
+      if (depth === 0 && start !== -1) {
+        return text.slice(start, index + 1);
+      }
+    }
+  }
+
+  return null;
+}
+
+function parsePayload(text: string): ParsedPayload | null {
+  const direct = tryParsePayload(text);
+  if (direct) return direct;
+
+  const withoutFences = stripCodeFences(text);
+  const cleaned = tryParsePayload(withoutFences);
+  if (cleaned) return cleaned;
+
+  const embedded = extractFirstJsonObject(withoutFences);
+  if (!embedded) return null;
+
+  return tryParsePayload(embedded);
 }
 
 function normalizeSlide(slide: ParsedSlide): DeckSlide {
@@ -98,14 +175,105 @@ export function getDisplayText(content: string): string {
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [deck, setDeck] = useState<Deck | null>(null);
+  const [deckStatus, setDeckStatus] = useState<DeckStatus>("idle");
+  const [lastDeckError, setLastDeckError] = useState<string | null>(null);
+  const [taskStatus, setTaskStatus] = useState<string | null>(null);
+  const eventsRef = useRef<EventSource | null>(null);
+
+  const stopTaskStream = () => {
+    eventsRef.current?.close();
+    eventsRef.current = null;
+  };
+
+  const startTaskStream = (taskId: string) => {
+    stopTaskStream();
+
+    const events = new EventSource(`/api/chat/tasks/${taskId}/events`);
+    eventsRef.current = events;
+
+    events.addEventListener("status", (event) => {
+      try {
+        const payload = JSON.parse((event as MessageEvent).data) as {
+          status?: string;
+          error?: string;
+        };
+        if (payload.status === "queued") {
+          setTaskStatus("Queued...");
+        } else if (payload.status === "generating") {
+          setTaskStatus("Generating...");
+        } else if (payload.status === "finalizing") {
+          setTaskStatus("Finalizing response...");
+        } else if (payload.status === "completed") {
+          setTaskStatus(null);
+          stopTaskStream();
+        } else if (payload.status === "failed") {
+          setTaskStatus(null);
+          setDeckStatus("parse_failed");
+          setLastDeckError(payload.error ?? "Task failed.");
+          stopTaskStream();
+        }
+      } catch {
+        // Ignore malformed event payloads.
+      }
+    });
+
+    events.addEventListener("error", () => {
+      setTaskStatus(null);
+      stopTaskStream();
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      stopTaskStream();
+    };
+  }, []);
+
   const chat = useChat({
     api: "/api/chat",
+    streamProtocol: "text",
     initialMessages: [initialMessage],
+    onResponse: (response) => {
+      const taskId = response.headers.get("x-chat-task-id");
+      setDeckStatus("loading");
+      setLastDeckError(null);
+      if (taskId) {
+        startTaskStream(taskId);
+      } else {
+        setTaskStatus(null);
+      }
+    },
     onFinish: (message) => {
+      stopTaskStream();
+      setTaskStatus(null);
       const parsed = parsePayload(message.content);
+      if (!parsed) {
+        setDeckStatus("parse_failed");
+        setLastDeckError(
+          "I could not parse the final deck payload. Please retry with a shorter brief."
+        );
+        return;
+      }
+
+      if (parsed.type === "question") {
+        setDeckStatus("question");
+        return;
+      }
+
       if (parsed?.deck?.title) {
         setDeck(normalizeDeck(parsed.deck));
+        setDeckStatus("ready");
+        setLastDeckError(null);
+      } else {
+        setDeckStatus("parse_failed");
+        setLastDeckError("The response did not include a complete deck.");
       }
+    },
+    onError: (error) => {
+      stopTaskStream();
+      setTaskStatus(null);
+      setDeckStatus("parse_failed");
+      setLastDeckError(error.message || "Request failed.");
     },
   });
 
@@ -118,6 +286,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       handleSubmit: chat.handleSubmit,
       stop: chat.stop,
       deck,
+      deckStatus,
+      lastDeckError,
+      taskStatus,
       setDeck,
     }),
     [
@@ -128,6 +299,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       chat.handleSubmit,
       chat.stop,
       deck,
+      deckStatus,
+      lastDeckError,
+      taskStatus,
     ]
   );
 
