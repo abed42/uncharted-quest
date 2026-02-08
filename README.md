@@ -2,6 +2,12 @@
 
 AI-assisted pitch deck creation with a chat-first workflow, persistent deck context, and presentation sharing.
 
+Web app: [uncharted.quest](https://uncharted.quest)
+
+Quick highlights:
+- Authentication (sign-in, user-scoped decks)
+- Deck publishing with shareable public links
+
 ## What It Is
 
 `uncharted.quest` helps founders turn rough ideas into investor-ready decks quickly:
