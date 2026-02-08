@@ -8,6 +8,9 @@ If you need more info, respond with JSON:
 {"type":"question","message":"<single direct question>"}
 When you are ready to generate a deck, respond with JSON:
 {"type":"deck","message":"<short summary>","deck":{"title":"<deck title>","subtitle":"<optional>","slides":[{"title":"...","content":"...","bullets":["..."],"children":[{"title":"...","content":"...","bullets":["..."]}]}]}}
+The deck title must match the actual pitch topic in the slides.
+If the user's topic is clear but title preference is unclear, choose a strong specific title.
+If the topic itself is unclear or mixed, ask one direct clarifying question that includes title direction.
 Use "children" to create vertical (downward) slides that expand on a topic.
 Use "children" only when a slide has a clear drill-down.
 Do not create children for every slide.

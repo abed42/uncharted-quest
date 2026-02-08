@@ -55,6 +55,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Poppins } from "next/font/google";
 import { AgentChat } from "./agent-chat";
@@ -200,6 +201,13 @@ const data = {
 
 export const GlobalSidebar = ({ children }: GlobalSidebarProperties) => {
   const sidebar = useSidebar();
+  const pathname = usePathname();
+  const pathSegments = pathname.split("/").filter(Boolean);
+  const showSidebar = pathSegments.length === 2;
+
+  if (!showSidebar) {
+    return <div className="flex min-h-svh flex-1 flex-col">{children}</div>;
+  }
 
   return (
     <>
@@ -213,14 +221,15 @@ export const GlobalSidebar = ({ children }: GlobalSidebarProperties) => {
                   sidebar.open ? "" : "-mx-1"
                 )}
               >
-                <div
+                <Link
+                  href="/home"
                   className={cn(
                     poppins.className,
                     "flex h-12 items-center px-2 text-2xl font-bold tracking-tight"
                   )}
                 >
                   uncharted.quest
-                </div>
+                </Link>
               </div>
             </SidebarMenuItem>
           </SidebarMenu>

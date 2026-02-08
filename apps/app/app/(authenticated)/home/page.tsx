@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function PresentationsDebugRedirectPage() {
+export default function HomeRedirectPage() {
   redirect("/");
 }

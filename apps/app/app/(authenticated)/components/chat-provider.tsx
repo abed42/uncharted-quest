@@ -45,6 +45,8 @@ type ChatState = {
   lastDeckError: string | null;
   taskStatus: string | null;
   setDeck: (deck: Deck | null) => void;
+  activeDeckId: number | null;
+  setActiveDeckId: (deckId: number | null) => void;
 };
 
 const ChatContext = createContext<ChatState | null>(null);
@@ -178,7 +180,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [deckStatus, setDeckStatus] = useState<DeckStatus>("idle");
   const [lastDeckError, setLastDeckError] = useState<string | null>(null);
   const [taskStatus, setTaskStatus] = useState<string | null>(null);
+  const [activeDeckId, setActiveDeckId] = useState<number | null>(null);
+  const activeDeckIdRef = useRef<number | null>(null);
   const eventsRef = useRef<EventSource | null>(null);
+  const isSavingDeckRef = useRef(false);
+
+  useEffect(() => {
+    activeDeckIdRef.current = activeDeckId;
+  }, [activeDeckId]);
 
   const stopTaskStream = () => {
     eventsRef.current?.close();
@@ -261,9 +270,28 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
 
       if (parsed?.deck?.title) {
-        setDeck(normalizeDeck(parsed.deck));
+        const normalizedDeck = normalizeDeck(parsed.deck);
+        setDeck(normalizedDeck);
         setDeckStatus("ready");
         setLastDeckError(null);
+
+        if (activeDeckIdRef.current && !isSavingDeckRef.current) {
+          isSavingDeckRef.current = true;
+          void fetch(`/api/decks/${activeDeckIdRef.current}/content`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              message: parsed.message,
+              title: parsed.deck.title,
+              subtitle: parsed.deck.subtitle,
+              slides: parsed.deck.slides ?? [],
+            }),
+          }).finally(() => {
+            isSavingDeckRef.current = false;
+          });
+        }
       } else {
         setDeckStatus("parse_failed");
         setLastDeckError("The response did not include a complete deck.");
@@ -290,6 +318,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       lastDeckError,
       taskStatus,
       setDeck,
+      activeDeckId,
+      setActiveDeckId,
     }),
     [
       chat.messages,
@@ -302,6 +332,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       deckStatus,
       lastDeckError,
       taskStatus,
+      activeDeckId,
     ]
   );
 
