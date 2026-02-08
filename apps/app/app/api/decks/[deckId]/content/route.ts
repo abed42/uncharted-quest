@@ -2,6 +2,7 @@ import { auth } from "@repo/auth/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { saveDeckContent } from "@/lib/decks-store";
+import { isDeckBackgroundOption, isDeckFontOption } from "@/lib/deck-style-options";
 
 const slideSchema: z.ZodType<{
   title: string;
@@ -24,6 +25,8 @@ const contentSchema = z.object({
   message: z.string().optional(),
   title: z.string().min(1),
   subtitle: z.string().optional(),
+  backgroundImage: z.string().optional(),
+  fontFamily: z.string().optional(),
   slides: z.array(slideSchema).default([]),
 });
 
@@ -47,10 +50,21 @@ export async function PATCH(
     return NextResponse.json({ message: "Invalid content payload." }, { status: 400 });
   }
 
+  const backgroundImage =
+    parsed.data.backgroundImage && isDeckBackgroundOption(parsed.data.backgroundImage)
+      ? parsed.data.backgroundImage
+      : undefined;
+  const fontFamily =
+    parsed.data.fontFamily && isDeckFontOption(parsed.data.fontFamily)
+      ? parsed.data.fontFamily
+      : undefined;
+
   const deck = await saveDeckContent({
     id,
     ownerId: userId,
     content: parsed.data,
+    backgroundImage,
+    fontFamily,
   });
 
   if (!deck) {

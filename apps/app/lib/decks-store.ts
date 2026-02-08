@@ -1,6 +1,12 @@
 import "server-only";
 
 import { database } from "@repo/database";
+import {
+  type DeckBackgroundOption,
+  type DeckFontOption,
+  isDeckBackgroundOption,
+  isDeckFontOption,
+} from "./deck-style-options";
 
 const RECORD_PREFIX = "deck:";
 
@@ -12,6 +18,8 @@ export type DeckRecord = {
   title: string;
   prompt: string;
   isPublic: boolean;
+  backgroundImage?: DeckBackgroundOption;
+  fontFamily?: DeckFontOption;
   content?: DeckContent;
   chatHistory?: DeckChatMessage[];
   createdAt: string;
@@ -44,6 +52,14 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function normalizeBackgroundImage(value: unknown): DeckBackgroundOption | undefined {
+  return isDeckBackgroundOption(value) ? value : undefined;
+}
+
+function normalizeFontFamily(value: unknown): DeckFontOption | undefined {
+  return isDeckFontOption(value) ? value : undefined;
+}
+
 function toStored(record: DeckRecord): StoredDeckRecord {
   return {
     ownerId: record.ownerId,
@@ -74,6 +90,8 @@ function decode(value: string): StoredDeckRecord | null {
       title: parsed.title ?? "Untitled",
       prompt: parsed.prompt ?? "",
       isPublic: parsed.isPublic ?? false,
+      backgroundImage: normalizeBackgroundImage(parsed.backgroundImage),
+      fontFamily: normalizeFontFamily(parsed.fontFamily),
       content: parsed.content,
       chatHistory: parsed.chatHistory,
       createdAt: parsed.createdAt ?? nowIso(),
@@ -233,6 +251,8 @@ export async function saveDeckContent(input: {
   id: number;
   ownerId: string;
   content: DeckContent;
+  backgroundImage?: DeckBackgroundOption;
+  fontFamily?: DeckFontOption;
 }): Promise<DeckRecord | null> {
   const row = await database.page.findUnique({ where: { id: input.id } });
   if (!row) return null;
@@ -243,6 +263,8 @@ export async function saveDeckContent(input: {
   const next: StoredDeckRecord = {
     ...parsed,
     content: input.content,
+    backgroundImage: input.backgroundImage ?? parsed.backgroundImage,
+    fontFamily: input.fontFamily ?? parsed.fontFamily,
     updatedAt: nowIso(),
   };
 

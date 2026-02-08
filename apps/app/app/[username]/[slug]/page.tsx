@@ -66,7 +66,12 @@ export default async function DeckRoutePage({
 
     return (
       <main className="flex min-h-svh flex-col p-0">
-        <PublicRevealPanel className="h-svh rounded-none border-0" slides={slides} />
+        <PublicRevealPanel
+          backgroundImage={deck.backgroundImage}
+          className="h-svh rounded-none border-0"
+          fontFamily={deck.fontFamily}
+          slides={slides}
+        />
       </main>
     );
   }
@@ -74,7 +79,12 @@ export default async function DeckRoutePage({
   if (isPresentMode) {
     return (
       <main className="flex min-h-svh flex-col p-0">
-        <PublicRevealPanel className="h-svh rounded-none border-0" slides={slides} />
+        <PublicRevealPanel
+          backgroundImage={deck.backgroundImage}
+          className="h-svh rounded-none border-0"
+          fontFamily={deck.fontFamily}
+          slides={slides}
+        />
       </main>
     );
   }
@@ -96,7 +106,12 @@ export default async function DeckRoutePage({
               />
 
               <div className="min-h-0 flex-1">
-                <ArtifactPanel className="h-full" demoSlides={slides} />
+                <ArtifactPanel
+                  backgroundImage={deck.backgroundImage}
+                  className="h-full"
+                  demoSlides={slides}
+                  fontFamily={deck.fontFamily}
+                />
               </div>
             </main>
           </GlobalSidebar>

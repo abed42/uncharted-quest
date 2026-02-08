@@ -49,7 +49,12 @@ export default async function PublicDeckPage({ params }: PublicDeckPageProps) {
         </span>
       </div>
       <div className="min-h-0 flex-1">
-        <PublicRevealPanel className="h-full" slides={slides} />
+        <PublicRevealPanel
+          backgroundImage={deck.backgroundImage}
+          className="h-full"
+          fontFamily={deck.fontFamily}
+          slides={slides}
+        />
       </div>
     </main>
   );

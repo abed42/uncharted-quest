@@ -1,140 +1,113 @@
-# ▲ / next-forge
+# uncharted.quest
 
-**Production-grade Turborepo template for Next.js apps.**
+AI-assisted pitch deck creation with a chat-first workflow, persistent deck context, and presentation sharing.
 
-<div>
-  <img src="https://img.shields.io/npm/dy/next-forge" alt="" />
-  <img src="https://img.shields.io/npm/v/next-forge" alt="" />
-  <img src="https://img.shields.io/github/license/vercel/next-forge" alt="" />
-</div>
+## What It Is
 
-## Overview
+`uncharted.quest` helps founders turn rough ideas into investor-ready decks quickly:
 
-[next-forge](https://github.com/vercel/next-forge) is a production-grade [Turborepo](https://turborepo.com) template for [Next.js](https://nextjs.org/) apps. It's designed to be a comprehensive starting point for building SaaS applications, providing a solid, opinionated foundation with minimal configuration required.
+- Chat with an agent to refine the story.
+- Generate and edit structured slides (including vertical drill-down slides).
+- Keep deck and chat context tied to each project.
+- Present in-browser via Reveal.js.
+- Publish decks to a shareable URL.
 
-Built on a decade of experience building web applications, next-forge balances speed and quality to help you ship thoroughly-built products faster.
+## Core Features
 
-### Philosophy
+- Context-aware deck generation and edits (`/api/chat`)
+- Per-deck storage for:
+  - deck content (title, subtitle, slides)
+  - chat history
+  - style metadata (background, font)
+- Editable deck title/slug and visibility controls
+- Public deck routes and presentation mode
+- Animated agent status feedback in sidebar chat
 
-next-forge is built around five core principles:
+## Tech Stack
 
-- **Fast** — Quick to build, run, deploy, and iterate on
-- **Cheap** — Free to start with services that scale with you
-- **Opinionated** — Integrated tooling designed to work together
-- **Modern** — Latest stable features with healthy community support
-- **Safe** — End-to-end type safety and robust security posture
+- Next.js 16 (App Router), React 19, TypeScript
+- Turborepo monorepo
+- Clerk auth (`@repo/auth`)
+- Prisma/database package (`@repo/database`)
+- OpenAI via AI SDK (`ai`, `@ai-sdk/openai`)
+- Reveal.js for slide rendering/presentation
+- Shared design system (`@repo/design-system`, shadcn-based)
 
-## Demo
+## Repository Structure
 
-Experience next-forge in action:
+```text
+apps/
+  app/                 Main product app (chat + decks + present/share)
+packages/
+  auth/                Auth package
+  database/            Database package
+  design-system/       Shared UI primitives/components
+  ...                  Other shared infra packages
+```
 
-- [Web](https://demo.next-forge.com) — Marketing website
-- [App](https://app.demo.next-forge.com) — Main application
-- [Storybook](https://storybook.demo.next-forge.com) — Component library
-- [API](https://api.demo.next-forge.com/health) — API health check
-
-## Features
-
-next-forge comes with batteries included:
-
-### Apps
-
-- **Web** — Marketing site built with Tailwind CSS and TWBlocks
-- **App** — Main application with authentication and database integration
-- **API** — RESTful API with health checks and monitoring
-- **Docs** — Documentation site powered by Mintlify
-- **Email** — Email templates with React Email
-- **Storybook** — Component development environment
-
-### Packages
-
-- **Authentication** — Powered by [Clerk](https://clerk.com)
-- **Database** — Type-safe ORM with migrations
-- **Design System** — Comprehensive component library with dark mode
-- **Payments** — Subscription management via [Stripe](https://stripe.com)
-- **Email** — Transactional emails via [Resend](https://resend.com)
-- **Analytics** — Web ([Google Analytics](https://developers.google.com/analytics)) and product ([Posthog](https://posthog.com))
-- **Observability** — Error tracking ([Sentry](https://sentry.io)), logging, and uptime monitoring ([BetterStack](https://betterstack.com))
-- **Security** — Application security ([Arcjet](https://arcjet.com)), rate limiting, and secure headers
-- **CMS** — Type-safe content management for blogs and documentation
-- **SEO** — Metadata management, sitemaps, and JSON-LD
-- **AI** — AI integration utilities
-- **Webhooks** — Inbound and outbound webhook handling
-- **Collaboration** — Real-time features with avatars and live cursors
-- **Feature Flags** — Feature flag management
-- **Cron** — Scheduled job management
-- **Storage** — File upload and management
-- **Internationalization** — Multi-language support
-- **Notifications** — In-app notification system
-
-## Getting Started
+## Local Development
 
 ### Prerequisites
 
 - Node.js 20+
-- [pnpm](https://pnpm.io) (or npm/yarn/bun)
-- [Stripe CLI](https://docs.stripe.com/stripe-cli) for local webhook testing
+- pnpm 10+
 
-### Installation
+### 1) Install
 
-Create a new next-forge project:
-
-```sh
-npx next-forge@latest init
+```bash
+pnpm install
 ```
 
-### Setup
+### 2) Configure environment
 
-1. Configure your environment variables
-2. Set up required service accounts (Clerk, Stripe, Resend, etc.)
-3. Run the development server
+Create `apps/app/.env.local` (or root `.env.local`, depending on your setup) with at least:
 
-For detailed setup instructions, read the [documentation](https://www.next-forge.com/docs).
+- `OPENAI_API_KEY`
+- `DATABASE_URL`
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
 
-## Structure
+If you are using additional next-forge packages, include their required env vars as well.
 
-next-forge uses a monorepo structure managed by Turborepo:
+### 3) Run database migrations/sync
 
-```
-next-forge/
-├── apps/           # Deployable applications
-│   ├── web/        # Marketing website (port 3001)
-│   ├── app/        # Main application (port 3000)
-│   ├── api/        # API server
-│   ├── docs/       # Documentation
-│   ├── email/      # Email templates
-│   └── storybook/  # Component library
-└── packages/       # Shared packages
-    ├── design-system/
-    ├── database/
-    ├── auth/
-    └── ...
+```bash
+pnpm migrate
 ```
 
-Each app is self-contained and independently deployable. Packages are shared across apps for consistency and maintainability.
+### 4) Start the app
 
-## Documentation
+```bash
+pnpm dev
+```
 
-Full documentation is available at [next-forge.com/docs](https://www.next-forge.com/docs), including:
+Main app runs at `http://localhost:3000`.
 
-- Detailed setup guides
-- Package documentation
-- Migration guides for swapping providers
-- Deployment instructions
-- Examples and recipes
+## Key Product Routes
 
-## Contributing
+- `/home` - Deck list + create flow
+- `/:username/:slug` - Owner workspace (chat + editable deck)
+- `/:username/:slug?present=1` - Owner present mode
+- `/share/:username/:slug` - Public shared deck page
 
-We welcome contributions! See the [contributing guide](https://github.com/vercel/next-forge/blob/main/.github/CONTRIBUTING.md) for details.
+## API Endpoints (App)
 
-## Contributors
+- `POST /api/decks/start` - Create a new deck
+- `PATCH /api/decks/:deckId/content` - Save generated deck content + style metadata
+- `PATCH /api/decks/:deckId/chat` - Save chat history
+- `PATCH /api/decks/:deckId/rename` - Rename deck (updates slug)
+- `PATCH /api/decks/:deckId/visibility` - Publish/unpublish
+- `POST /api/chat` - Agent interaction for deck generation/edits
 
-<a href="https://github.com/vercel/next-forge/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=vercel/next-forge" />
-</a>
+## Demo Flow (Hackathon)
 
-Made with [contrib.rocks](https://contrib.rocks).
+1. Create a deck from a short prompt.
+2. Use chat to refine the pitch and generate slides.
+3. Confirm/adjust title suggestions.
+4. Present the deck in fullscreen.
+5. Publish and copy the share link.
 
-## License
+## Notes
 
-MIT
+- This project is built on top of a `next-forge` monorepo base and customized for the Uncharted pitch workflow.
+- Storage currently uses the existing database page model with serialized deck records for rapid iteration.
